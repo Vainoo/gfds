@@ -47,36 +47,3 @@ jobs:
           issue-number: ${{ github.event.issue.number }}
           body: |
             The issue is now resolved.
-
-  first_pr_comment:
-    runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name == github.repository
-    permissions:
-      pull-requests: write
-      issues: write
-    steps:
-      - name: Check if first PR and comment
-        uses: actions/github-script@v6
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const creator = context.payload.sender.login
-            const opts = github.rest.issues.listForRepo.endpoint.merge({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              creator,
-              state: 'all'
-            })
-            const issues = await github.paginate(opts)
-
-            for (const issue of issues) {
-              if (issue.number === context.issue.number) continue
-              if (issue.pull_request) return
-            }
-
-            await github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: `Congratulations! @${creator} `
-            })
