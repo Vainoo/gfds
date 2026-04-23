@@ -62,29 +62,27 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            // Get a list of all issues created by the PR opener
-            // See: https://octokit.github.io/rest.js/#pagination
             const creator = context.payload.sender.login
+            const prNumber = context.payload.pull_request.number
+
+            // list issues/PRs created by this user in this repo
             const opts = github.rest.issues.listForRepo.endpoint.merge({
-              ...context.issue,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
               creator,
-              state: 'all'
+              state: 'all',
+              per_page: 100
             })
             const issues = await github.paginate(opts)
 
             for (const issue of issues) {
-              if (issue.number === context.issue.number) {
-                continue
-              }
-
-              if (issue.pull_request) {
-                return // Creator is already a contributor.
-              }
+              if (issue.number === prNumber) continue
+              if (issue.pull_request) return // already opened a PR before
             }
 
             await github.rest.issues.createComment({
-              issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: `Congratulations! You are awesome! Thanks for opening your first pull request. We'll review it as soon as possible.`
+              issue_number: prNumber,
+              body: `Congratulations! @${creator} you are awesome! Thanks for opening your first pull request. We'll review it as soon as possible.`
             })
