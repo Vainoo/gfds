@@ -52,10 +52,11 @@ jobs:
 # Comment on when an users opens the first pull request 
   first_pr_comment:
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name == github.repository
     permissions:
-      pull-requests: write
       issues: write
+      contents: read
+      pull-requests: read
     steps:
       - name: Check if first PR and comment
         uses: actions/github-script@v6
@@ -63,26 +64,29 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const creator = context.payload.sender.login
-            const prNumber = context.payload.pull_request.number
-
-            // list issues/PRs created by this user in this repo
-            const opts = github.rest.issues.listForRepo.endpoint.merge({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              creator,
-              state: 'all',
-              per_page: 100
-            })
-            const issues = await github.paginate(opts)
-
-            for (const issue of issues) {
-              if (issue.number === prNumber) continue
-              if (issue.pull_request) return // already opened a PR before
+  
+            // Determine whether the user is already a collaborator/contributor with permissions
+            let perm = 'none'
+            try {
+              const { data } = await github.rest.repos.getCollaboratorPermissionLevel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                username: creator
+              })
+              perm = data.permission
+            } catch (e) {
+              // 404 means not a collaborator; keep perm as 'none'
+              if (e.status !== 404) throw e
             }
-
+  
+            // Only comment for non-collaborators (approx. "first-timer" behavior)
+            if (perm === 'admin' || perm === 'maintain' || perm === 'write' || perm === 'triage') {
+              return
+            }
+  
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              issue_number: prNumber,
+              issue_number: context.issue.number,
               body: `Congratulations! @${creator} you are awesome! Thanks for opening your first pull request. We'll review it as soon as possible.`
             })
