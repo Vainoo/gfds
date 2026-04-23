@@ -7,7 +7,9 @@ on:
     types: [opened]
 
 # Default to least privilege for the whole workflow
-permissions: read-all
+permissions: 
+  issues: write
+  pull-requests: read
 
 jobs:
   label_issues:
@@ -47,11 +49,11 @@ jobs:
             The issue is now resolved.
 
   first_pr_comment:
-    if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name == github.repository
     permissions:
-      issues: write
       pull-requests: write
+      issues: write
     steps:
       - name: Check if first PR and comment
         uses: actions/github-script@v6
@@ -76,5 +78,5 @@ jobs:
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: `Congratulations! @${creator} you are awesome! Thanks for opening your first pull request. We'll review it as soon as possible.`
+              body: `Congratulations! @${creator} `
             })
